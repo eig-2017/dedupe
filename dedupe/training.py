@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class BlockLearner(object) :
-    def learn(self, matches, recall) :
+    def learn(self, matches, distincts, recall) :
         '''
         Takes in a set of training pairs and predicates and tries to find
         a good set of blocking rules.
@@ -24,35 +24,88 @@ class BlockLearner(object) :
                                for i, record
                                in enumerate(self.unroll(matches))})
         
-        dupe_cover = cover(self.blocker, matches, compound_length)
+        dupe_cover = cover(self.blocker, matches, compound_length) # Matches covered by each predicate
 
         self.blocker.resetIndices()
 
-        comparison_count = self.comparisons(self.total_cover, compound_length)
+        self.blocker.indexAll({i : record
+                               for i, record
+                               in enumerate(self.unroll(distincts))})
+        
+        distincts_cover = cover(self.blocker, distincts, compound_length) # Matches covered by each predicate
 
-        coverable_dupes = set.union(*viewvalues(dupe_cover))
-        uncoverable_dupes = [pair for i, pair in enumerate(matches)
+        self.blocker.resetIndices()
+ 
+        # Removed this
+        # comparison_count = self.comparisons(self.total_cover, compound_length) # scores of different blocks
+
+        coverable_dupes = set.union(*viewvalues(dupe_cover)) # All matches that have a block in common
+        uncoverable_dupes = [pair for i, pair in enumerate(matches) # All matches that have no block in common
                              if i not in coverable_dupes]
 
         epsilon = int((1.0 - recall) * len(matches))
 
-        if len(uncoverable_dupes) > epsilon :
+        if len(uncoverable_dupes) > epsilon: # If there are more uncoverable dupes than possible for target recall
             logger.warning(OUT_OF_PREDICATES_WARNING)
             logger.debug(uncoverable_dupes)
             epsilon = 0
         else :
             epsilon -= len(uncoverable_dupes)
 
-        searcher = BranchBound(dupe_cover, comparison_count, epsilon, 2500)
-        final_predicates = searcher.search(dupe_cover)
+        final_predicates = []
+        covered = set()
+       
+        #
+        predicate_counter = 10
+        alpha = 0.3
+        target_recall = 0.99
+        num_coverable = len(coverable_dupes)
+        while (len(covered) / num_coverable <= target_recall) and predicate_counter:
+            
+            dupe_cover_count = {key: len(val-covered) for key, val in dupe_cover.items()}
+            distinct_cover_count = {key: len(val-covered) for key, val in distincts_cover.items()}
+            
+            predicate_score = [(key, val - alpha*(distinct_cover_count.get(key, 0))) \
+                               for key, val in dupe_cover_count.items()]            
+            predicate_score.sort(key=lambda x: x[1])
+            final_predicates.append(predicate_score[-1][0])
+            covered |= dupe_cover[final_predicates[-1]]
+
+            predicate_counter -= 1
+            print('Current final predicates are', final_predicates)
+    
+        
+        # OG START
+        #        searcher = BranchBound(dupe_cover, comparison_count, epsilon, 2500)
+        #        final_predicates = searcher.search(dupe_cover)
+        # OG_END
 
         logger.info('Final predicate set:')
         for predicate in final_predicates:
             logger.info(predicate)
 
+        import json
+        import os
+        file_path = '/home/m75380/Documents/eig/the-magical-csv-merge-machine'\
+                    '/merge_machine/local_test_data/test_results.json'
+        if os.path.isfile(file_path):
+            with open(file_path, 'r') as f:
+                results = json.load(f)
+                if 'predicates' not in results:
+                    results['predicates'] = []
+        else:
+            results = dict()
+            results['predicates'] = []
+        results['predicates'].append([(predicate.__str__(), len(distincts_cover.get(predicate, {}))) for predicate in final_predicates])        
+        with open(file_path, 'w') as w:
+            json.dump(results, w)        
+        
+        for predicate in final_predicates:
+            print('Final predicate', predicate, 'had', len(distincts_cover.get(predicate, {})), ' pairs in distincts')
+
         return final_predicates
 
-    def comparisons(self, cover, compound_length) :
+    def comparisons(self, cover, compound_length):
         CP = predicates.CompoundPredicate
 
         block_index = {}

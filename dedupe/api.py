@@ -673,14 +673,15 @@ class ActiveMatching(Matching):
 
     def _trainBlocker(self, recall, index_predicates):  # pragma: no cover
         matches = self.training_pairs['match'][:]
+        distincts = self.training_pairs['distinct'][:]
 
         predicate_set = self.data_model.predicates(index_predicates,
                                                    self.canopies)
 
         block_learner = self._blockLearner(predicate_set)
-
-        self.predicates = block_learner.learn(matches,
-                                              recall)
+        
+        self.predicates = block_learner.learn(matches, distincts,
+                                              recall) # Look into training.py
 
         self.blocker = blocking.Blocker(self.predicates)
 
@@ -801,7 +802,7 @@ class Dedupe(DedupeMatching, ActiveMatching):
 
         if original_length is None:
             original_length = len(data)
-        self.sampled_records = Sample(data, 2000, original_length)
+        self.sampled_records = Sample(data, 900, original_length)
 
         self.active_learner = self.ActiveLearner(self.data_model)
         self.active_learner.sample_combo(data, blocked_proportion, sample_size)

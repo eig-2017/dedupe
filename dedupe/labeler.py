@@ -52,12 +52,14 @@ class ActiveLearner(with_metaclass(ABCMeta)):
     def sample_product(self, data_1, data_2, blocked_proportion, sample_size):
         offset = len(data_1)
 
-        blocked_sample_size = int(blocked_proportion * sample_size)
-        predicates = list(self.data_model.predicates(index_predicates=False))
+        blocked_sample_size = int(blocked_proportion * sample_size) # Number of blocked samples to generate
+        predicates = list(self.data_model.predicates(index_predicates=False)) # List of predicates
+        
 
         deque_1 = sampling.randomDeque(data_1)
         deque_2 = sampling.randomDeque(data_2)
 
+        # Get pairs of indexes by block
         blocked_sample_keys = sampling.linkBlockedSample(blocked_sample_size,
                                                          predicates,
                                                          deque_1,
@@ -71,10 +73,12 @@ class ActiveLearner(with_metaclass(ABCMeta)):
         random_sample_keys = {(a, b + offset)
                               for a, b in random_sample_keys}
 
+        # Get actual data from indexes
         self.candidates = [(data_1[k1], data_2[k2])
                            for k1, k2
                            in blocked_sample_keys | random_sample_keys]
 
+        # Compute Edit distance between each field
         self.distances = self.transform(self.candidates)
 
             
