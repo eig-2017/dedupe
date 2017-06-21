@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# TODO: use predicates AFTER blocking instead of thresholding
+
 # provides functions for selecting a sample of training data
 from __future__ import division
 from future.utils import viewitems, viewvalues
@@ -56,14 +58,14 @@ class BlockLearner(object) :
         covered = set()
        
         #
-        predicate_counter = 10
-        alpha = 0.3
-        target_recall = 0.99
+        predicate_counter = 3
+        alpha = 0.35
+        target_recall = 0.95
         num_coverable = len(coverable_dupes)
         while (len(covered) / num_coverable <= target_recall) and predicate_counter:
             
             dupe_cover_count = {key: len(val-covered) for key, val in dupe_cover.items()}
-            distinct_cover_count = {key: len(val-covered) for key, val in distincts_cover.items()}
+            distinct_cover_count = {key: len(val) for key, val in distincts_cover.items()}
             
             predicate_score = [(key, val - alpha*(distinct_cover_count.get(key, 0))) \
                                for key, val in dupe_cover_count.items()]            
@@ -74,7 +76,7 @@ class BlockLearner(object) :
             predicate_counter -= 1
             print('Current final predicates are', final_predicates)
     
-        
+
         # OG START
         #        searcher = BranchBound(dupe_cover, comparison_count, epsilon, 2500)
         #        final_predicates = searcher.search(dupe_cover)
@@ -86,8 +88,8 @@ class BlockLearner(object) :
 
         import json
         import os
-        file_path = '/home/m75380/Documents/eig/the-magical-csv-merge-machine'\
-                    '/merge_machine/local_test_data/test_results.json'
+        file_path = os.path.expanduser('~/Documents/eig/the-magical-csv-merge-machine' \
+                    '/merge_machine/local_test_data/test_results.json')
         if os.path.isfile(file_path):
             with open(file_path, 'r') as f:
                 results = json.load(f)
@@ -100,8 +102,14 @@ class BlockLearner(object) :
         with open(file_path, 'w') as w:
             json.dump(results, w)        
         
+        
+        num_matches = len(matches)
+        num_distincts = len(distincts)
         for predicate in final_predicates:
-            print('Final predicate', predicate, 'had', len(distincts_cover.get(predicate, {})), ' pairs in distincts')
+            len_dupe_covers = len(dupe_cover.get(predicate, {}))
+            len_distincts_cover = len(distincts_cover.get(predicate, {}))
+            print('Final predicate {0} had {1}/{2} in matches and {3}/{4} in distincts'.format(\
+                  predicate, len_dupe_covers, num_matches, len_distincts_cover, num_distincts))
 
         return final_predicates
 

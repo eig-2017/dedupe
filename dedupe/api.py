@@ -319,6 +319,7 @@ class RecordLinkMatching(Matching):
     """
 
     def __init__(self, *args, **kwargs):
+        print('CHUCKANOOGA')
         super(RecordLinkMatching, self).__init__(*args, **kwargs)
 
         self._cluster = clustering.greedyMatching
@@ -396,12 +397,17 @@ class RecordLinkMatching(Matching):
         return itertools.chain.from_iterable(pairs)
 
     def _blockGenerator(self, messy_data, blocked_records):
+        
+        # TODO: check out groupby (doesnt follow order)
         block_groups = itertools.groupby(self.blocker(viewitems(messy_data)),
                                          lambda x: x[1])
 
+        import pdb
+        pdb.set_trace()
+
         for i, (record_id, block_keys) in enumerate(block_groups):
             if i % 100 == 0:
-                logger.info("%s records" % i)
+                logger.info("Generated blocks for {0} records".format(i))
 
             A = [(record_id, messy_data[record_id], set())]
 
